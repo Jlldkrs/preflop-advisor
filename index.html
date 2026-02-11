@@ -199,64 +199,110 @@
   .card-slot {
     width: 120px;
     height: 174px;
-    border: 1.5px solid #d2d2d7;
-    border-radius: 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
+    border-radius: 10px;
     cursor: pointer;
-    background: #fff;
-    transition: border-color .2s, transform .2s, box-shadow .2s;
     user-select: none;
     position: relative;
     overflow: hidden;
+    transition: transform .2s, box-shadow .2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12), 0 1px 3px rgba(0,0,0,.08);
   }
   .card-slot:hover {
-    border-color: #b0b0b6;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.15), 0 2px 6px rgba(0,0,0,.1);
   }
   .card-slot.selected {
-    border-color: rgba(0,113,227,.4);
-    box-shadow: 0 2px 12px rgba(0,113,227,.1);
+    box-shadow: 0 4px 16px rgba(0,113,227,.25), 0 2px 6px rgba(0,0,0,.1);
   }
-  .card-slot .rank { font-size: 2.8rem; font-weight: 700; line-height: 1; }
-  .card-slot .suit { font-size: 2rem; line-height: 1; margin-top: 2px; }
-  .card-slot.red { color: #e3342f; }
-  .card-slot.black { color: #1d1d1f; }
 
-  /* Card back artwork for empty cards */
+  /* ── Filled card face ── */
+  .card-slot.red, .card-slot.black {
+    background: #fff;
+    border: 1px solid #c8c8cc;
+  }
+  .card-slot.red { color: #cc1100; }
+  .card-slot.black { color: #1a1a2e; }
+
+  /* Corner indices */
+  .card-slot .corner {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    gap: 0;
+  }
+  .card-slot .corner-tl { top: 7px; left: 7px; }
+  .card-slot .corner-br { bottom: 7px; right: 7px; transform: rotate(180deg); }
+  .card-slot .corner .c-rank { font-size: 0.95rem; font-weight: 700; }
+  .card-slot .corner .c-suit { font-size: 0.75rem; line-height: 1; margin-top: -1px; }
+
+  /* Center pip area */
+  .card-slot .center-pip {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    line-height: 1;
+    opacity: 0.9;
+  }
+
+  /* Decorative inner border on face cards */
+  .card-slot.red::before, .card-slot.black::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    opacity: 0.08;
+    pointer-events: none;
+  }
+
+  /* ── Card back (empty state) ── */
   .card-slot.empty-card {
+    border: 1px solid #8b1a1a;
     background:
+      /* Diamond lattice pattern */
+      linear-gradient(45deg, transparent 48%, rgba(255,215,0,.18) 48%, rgba(255,215,0,.18) 52%, transparent 52%),
+      linear-gradient(-45deg, transparent 48%, rgba(255,215,0,.18) 48%, rgba(255,215,0,.18) 52%, transparent 52%),
+      /* Repeating ornamental diamonds */
       repeating-linear-gradient(
         45deg,
         transparent,
-        transparent 8px,
-        rgba(0,113,227,.03) 8px,
-        rgba(0,113,227,.03) 9px
+        transparent 10px,
+        rgba(255,255,255,.06) 10px,
+        rgba(255,255,255,.06) 11px
       ),
       repeating-linear-gradient(
         -45deg,
         transparent,
-        transparent 8px,
-        rgba(0,113,227,.03) 8px,
-        rgba(0,113,227,.03) 9px
+        transparent 10px,
+        rgba(255,255,255,.06) 10px,
+        rgba(255,255,255,.06) 11px
       ),
-      #fff;
+      /* Base gradient */
+      linear-gradient(160deg, #8b1a1a 0%, #a52a2a 30%, #8b1a1a 50%, #6b1414 100%);
   }
+  /* Ornate inner border */
   .card-slot.empty-card::before {
     content: '';
     position: absolute;
-    inset: 10px;
-    border: 1.5px solid rgba(0,113,227,.1);
-    border-radius: 8px;
+    inset: 5px;
+    border: 1.5px solid rgba(255,215,0,.35);
+    border-radius: 6px;
+    pointer-events: none;
   }
+  /* Second inner border + center ornament */
   .card-slot.empty-card::after {
     content: '\2660';
-    font-size: 2rem;
-    color: rgba(0,113,227,.12);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.4rem;
+    color: rgba(255,215,0,.3);
+    text-shadow: 0 0 8px rgba(255,215,0,.15);
   }
 
   /* ── Hand name ── */
@@ -731,7 +777,10 @@ function renderCard(idx) {
     el.innerHTML = '';
   } else {
     el.className = 'card-slot selected ' + c.color;
-    el.innerHTML = `<span class="rank">${c.rank}</span><span class="suit">${c.suitSym}</span>`;
+    el.innerHTML =
+      `<div class="corner corner-tl"><span class="c-rank">${c.rank}</span><span class="c-suit">${c.suitSym}</span></div>` +
+      `<div class="corner corner-br"><span class="c-rank">${c.rank}</span><span class="c-suit">${c.suitSym}</span></div>` +
+      `<div class="center-pip">${c.suitSym}</div>`;
   }
 }
 
