@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pre-Flop Advisor</title>
+<meta name="description" content="Poker pre-flop decision tool. Get raise, call, or fold recommendations based on your hole cards and position.">
+<meta name="theme-color" content="#fbfbfd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pre-Flop">
+<link rel="manifest" href="manifest.json">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #fbfbfd;
+    color: #1d1d1f;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header ── */
+  header {
+    width: 100%;
+    padding: 56px 0 24px;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 2.8rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #1d1d1f;
+  }
+  header p {
+    margin-top: 8px;
+    font-size: 1.1rem;
+    color: #6e6e73;
+    font-weight: 400;
+  }
+
+  /* ── Main container ── */
+  .container {
+    width: 100%;
+    max-width: 480px;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    margin-top: 12px;
+  }
+
+  /* ── Control rows ── */
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .control-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #6e6e73;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Stepper (player count) ── */
+  .stepper {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #d2d2d7;
+    overflow: hidden;
+  }
+  .stepper button {
+    width: 44px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    color: #0071e3;
+    font-size: 1.3rem;
+    font-weight: 400;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, transform .1s;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .stepper button:hover { background: rgba(0,113,227,.06); }
+  .stepper button:active { transform: scale(0.85); }
+  .stepper button:disabled { color: #d2d2d7; cursor: default; background: transparent; transform: none; }
+  .stepper .stepper-value {
+    width: 48px;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1d1d1f;
+    border-left: 1px solid #d2d2d7;
+    border-right: 1px solid #d2d2d7;
+    line-height: 40px;
+  }
+
+  /* ── Custom dropdown (position) ── */
+  .dropdown-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 320px;
+  }
+  .dropdown-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #d2d2d7;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .dropdown-trigger:hover { border-color: #b0b0b6; }
+  .dropdown-trigger .dd-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1d1d1f;
+  }
+  .dropdown-trigger .dd-desc {
+    font-size: 0.8rem;
+    color: #6e6e73;
+    margin-left: 8px;
+  }
+  .dropdown-trigger .dd-chevron {
+    margin-left: auto;
+    padding-left: 12px;
+    font-size: 0.7rem;
+    color: #b0b0b6;
+    transition: transform .2s;
+  }
+  .dropdown-trigger.open .dd-chevron { transform: rotate(180deg); }
+
+  .dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0; right: 0;
+    background: #fff;
+    border: 1px solid #d2d2d7;
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 50;
+    box-shadow: 0 4px 24px rgba(0,0,0,.1);
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: opacity .18s, transform .18s;
+  }
+  .dropdown-menu.open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .dropdown-option {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 11px 16px;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .dropdown-option:not(:last-child) {
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .dropdown-option:hover { background: #f5f5f7; }
+  .dropdown-option.active { background: rgba(0,113,227,.07); }
+  .dropdown-option .opt-abbr {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1d1d1f;
+    min-width: 50px;
+  }
+  .dropdown-option .opt-desc {
+    font-size: 0.8rem;
+    color: #6e6e73;
+  }
+
+  /* ── Cards ── */
+  .card-area {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    padding: 8px 0;
+  }
+  .card-slot {
+    width: 120px;
+    height: 174px;
+    border: 1.5px solid #d2d2d7;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    background: #fff;
+    transition: border-color .2s, transform .2s, box-shadow .2s;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .card-slot:hover {
+    border-color: #b0b0b6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+  }
+  .card-slot.selected {
+    border-color: rgba(0,113,227,.4);
+    box-shadow: 0 2px 12px rgba(0,113,227,.1);
+  }
+  .card-slot .rank { font-size: 2.8rem; font-weight: 700; line-height: 1; }
+  .card-slot .suit { font-size: 2rem; line-height: 1; margin-top: 2px; }
+  .card-slot.red { color: #e3342f; }
+  .card-slot.black { color: #1d1d1f; }
+
+  /* Card back artwork for empty cards */
+  .card-slot.empty-card {
+    background:
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 8px,
+        rgba(0,113,227,.03) 8px,
+        rgba(0,113,227,.03) 9px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 8px,
+        rgba(0,113,227,.03) 8px,
+        rgba(0,113,227,.03) 9px
+      ),
+      #fff;
+  }
+  .card-slot.empty-card::before {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    border: 1.5px solid rgba(0,113,227,.1);
+    border-radius: 8px;
+  }
+  .card-slot.empty-card::after {
+    content: '\2660';
+    font-size: 2rem;
+    color: rgba(0,113,227,.12);
+  }
+
+  /* ── Hand name ── */
+  .hand-name {
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #6e6e73;
+    min-height: 22px;
+    transition: opacity .3s;
+  }
+  .hand-name.visible { color: #1d1d1f; }
+
+  /* ── Action row ── */
+  .action-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .reset-btn {
+    padding: 8px 28px;
+    border-radius: 980px;
+    background: #fff;
+    border: 1px solid #d2d2d7;
+    color: #6e6e73;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .reset-btn:hover { background: #f5f5f7; color: #1d1d1f; border-color: #b0b0b6; }
+
+  /* ── Recommendation ── */
+  .recommendation {
+    width: 100%;
+    padding: 18px 24px;
+    border-radius: 14px;
+    text-align: center;
+    min-height: 58px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background .3s, color .3s, opacity .3s, border-color .3s;
+    opacity: 0;
+    border: 1px solid transparent;
+  }
+  .recommendation.visible { opacity: 1; }
+  .recommendation .rec-action {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .recommendation .rec-reason {
+    font-size: 0.82rem;
+    font-weight: 400;
+    opacity: 0.8;
+  }
+  .recommendation.raise {
+    background: #e8f9ee;
+    color: #1a7d36;
+    border-color: #c6ecd3;
+  }
+  .recommendation.call {
+    background: #fef9e7;
+    color: #8a6d1b;
+    border-color: #f5e6a3;
+  }
+  .recommendation.fold {
+    background: #fdecea;
+    color: #c0392b;
+    border-color: #f5c6c2;
+  }
+
+  /* ── Overlay (card picker) ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.2);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 1;
+    transition: opacity .2s;
+  }
+  .overlay.hidden { display: none; }
+  .picker-panel {
+    background: #fff;
+    border: 1px solid #d2d2d7;
+    border-radius: 18px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 280px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.12);
+  }
+  .picker-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6e6e73;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+  .picker-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+  }
+  .picker-grid button {
+    width: 52px;
+    height: 52px;
+    border: 1px solid #d2d2d7;
+    border-radius: 10px;
+    font-size: 1.4rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: #f5f5f7;
+    color: #1d1d1f;
+    transition: background .12s, border-color .12s, transform .1s;
+  }
+  .picker-grid button:hover {
+    background: rgba(0,113,227,.08);
+    border-color: rgba(0,113,227,.3);
+    transform: scale(1.05);
+  }
+  .picker-grid button:active { transform: scale(0.97); }
+  .picker-grid button.suit-red { color: #e3342f; }
+  .picker-grid button:disabled {
+    opacity: .2;
+    cursor: default;
+    background: #f5f5f7;
+    border-color: #d2d2d7;
+    transform: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Pre-Flop Advisor</h1>
+  <p>Select your position and hole cards</p>
+</header>
+
+<div class="container">
+  <!-- Player count -->
+  <div class="control-row">
+    <span class="control-label">Players</span>
+    <div class="stepper">
+      <button id="stepDown" onclick="changePlayerCount(-1)">&#8722;</button>
+      <div class="stepper-value" id="playerCountValue">6</div>
+      <button id="stepUp" onclick="changePlayerCount(1)">+</button>
+    </div>
+  </div>
+
+  <!-- Position -->
+  <div class="control-row">
+    <span class="control-label">Position</span>
+    <div class="dropdown-wrap" id="dropdownWrap">
+      <div class="dropdown-trigger" id="dropdownTrigger" onclick="toggleDropdown()">
+        <span>
+          <span class="dd-label" id="ddLabel">CO</span>
+          <span class="dd-desc" id="ddDesc">Cutoff</span>
+        </span>
+        <span class="dd-chevron">&#9660;</span>
+      </div>
+      <div class="dropdown-menu" id="dropdownMenu"></div>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div class="card-area">
+    <div class="card-slot empty-card" id="card0" onclick="onCardClick(0)"></div>
+    <div class="card-slot empty-card" id="card1" onclick="onCardClick(1)"></div>
+  </div>
+
+  <!-- Hand name -->
+  <div class="hand-name" id="handName"></div>
+
+  <!-- Actions -->
+  <div class="action-row">
+    <button class="reset-btn" onclick="reset()">Reset</button>
+    <div class="recommendation" id="rec"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay" onclick="if(event.target===this)closeOverlay()">
+  <div class="picker-panel">
+    <div class="picker-title" id="pickerTitle">Choose suit</div>
+    <div class="picker-grid" id="picker"></div>
+  </div>
+</div>
+
+<script>
+// ── Data ──
+const POSITIONS_BY_COUNT = {
+  2:  ['SB','BB'],
+  3:  ['BTN','SB','BB'],
+  4:  ['CO','BTN','SB','BB'],
+  5:  ['HJ','CO','BTN','SB','BB'],
+  6:  ['UTG','HJ','CO','BTN','SB','BB'],
+  7:  ['UTG','MP','HJ','CO','BTN','SB','BB'],
+  8:  ['UTG','UTG+1','MP','HJ','CO','BTN','SB','BB'],
+  9:  ['UTG','UTG+1','UTG+2','MP','HJ','CO','BTN','SB','BB'],
+  10: ['UTG','UTG+1','UTG+2','MP','MP+1','HJ','CO','BTN','SB','BB'],
+};
+
+const POSITION_INFO = {
+  'UTG':   { name: 'Under the Gun',     desc: 'First to act' },
+  'UTG+1': { name: 'Under the Gun +1',  desc: 'Second to act' },
+  'UTG+2': { name: 'Under the Gun +2',  desc: 'Third to act' },
+  'MP':    { name: 'Middle Position',    desc: 'Middle of the table' },
+  'MP+1':  { name: 'Middle Position +1', desc: 'Late middle position' },
+  'HJ':    { name: 'Hijack',            desc: 'Two before the Button' },
+  'CO':    { name: 'Cutoff',            desc: 'One before the Button' },
+  'BTN':   { name: 'Button',            desc: 'Dealer, last to act post-flop' },
+  'SB':    { name: 'Small Blind',       desc: 'Forced half-bet, first post-flop' },
+  'BB':    { name: 'Big Blind',         desc: 'Forced full bet, last pre-flop' },
+};
+
+const RANKS = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+const RANK_NAMES = {
+  'A':'Ace','K':'King','Q':'Queen','J':'Jack','T':'Ten',
+  '9':'Nine','8':'Eight','7':'Seven','6':'Six','5':'Five',
+  '4':'Four','3':'Three','2':'Two'
+};
+const SUITS = [
+  { sym: '\u2660', name: 'Spades',   color: 'black' },
+  { sym: '\u2665', name: 'Hearts',   color: 'red' },
+  { sym: '\u2666', name: 'Diamonds', color: 'red' },
+  { sym: '\u2663', name: 'Clubs',    color: 'black' }
+];
+const SUIT_NAMES = {};
+SUITS.forEach(s => SUIT_NAMES[s.sym] = s.name);
+
+let playerCount = 6;
+let position = 'CO';
+let cards = [null, null];
+let activeCard = null;
+let dropdownOpen = false;
+
+// ── Hand naming ──
+function getHandName(c0, c1) {
+  if (!c0 || !c0.rank || !c1 || !c1.rank) return '';
+  const r0 = c0.rank, r1 = c1.rank;
+  const suited = c0.suitSym === c1.suitSym;
+  const i0 = RANKS.indexOf(r0), i1 = RANKS.indexOf(r1);
+  const hiR = i0 <= i1 ? r0 : r1;
+  const loR = i0 <= i1 ? r1 : r0;
+
+  if (hiR === loR) {
+    return 'Pocket ' + RANK_NAMES[hiR] + 's';
+  }
+  let name = RANK_NAMES[hiR] + '-' + RANK_NAMES[loR];
+  name += suited ? ' suited' : ' offsuit';
+  return name;
+}
+
+// ── Range engine ──
+function handKey(r1, r2, suited) {
+  const i1 = RANKS.indexOf(r1), i2 = RANKS.indexOf(r2);
+  const hi = i1 <= i2 ? r1 : r2;
+  const lo = i1 <= i2 ? r2 : r1;
+  if (hi === lo) return hi + lo;
+  return hi + lo + (suited ? 's' : 'o');
+}
+
+function expandRange(str) {
+  if (!str) return new Set();
+  const set = new Set();
+  str.split(',').forEach(t => {
+    t = t.trim();
+    if (!t) return;
+    const plus = t.endsWith('+');
+    if (plus) t = t.slice(0, -1);
+    if (t.length === 2 && t[0] === t[1]) {
+      const idx = RANKS.indexOf(t[0]);
+      if (plus) { for (let i = 0; i <= idx; i++) set.add(RANKS[i]+RANKS[i]); }
+      else set.add(t);
+    } else if (t.length === 3) {
+      const hi = t[0], lo = t[1], type = t[2];
+      const hiIdx = RANKS.indexOf(hi);
+      const loIdx = RANKS.indexOf(lo);
+      if (plus) {
+        for (let i = hiIdx + 1; i <= loIdx; i++) set.add(hi + RANKS[i] + type);
+      } else {
+        set.add(t);
+      }
+    }
+  });
+  return set;
+}
+
+const tierRaise = [
+  'AA,KK,QQ,JJ,TT,99,AKs,AQs,AJs,ATs,KQs,AKo,AQo',
+  'AA,KK,QQ,JJ,TT,99,88,AKs,AQs,AJs,ATs,A9s,KQs,KJs,QJs,AKo,AQo,AJo',
+  'AA,KK,QQ,JJ,TT,99,88,77,AKs,AQs,AJs,ATs,A9s,A8s,KQs,KJs,KTs,QJs,QTs,JTs,AKo,AQo,AJo,ATo,KQo',
+  'AA,KK,QQ,JJ,TT,99,88,77,66,AKs,AQs,AJs,ATs,A9s,A8s,A7s,A6s,A5s,KQs,KJs,KTs,K9s,QJs,QTs,Q9s,JTs,J9s,T9s,98s,AKo,AQo,AJo,ATo,A9o,KQo,KJo,QJo',
+  'AA,KK,QQ,JJ,TT,99,88,77,66,55,AKs,AQs,AJs,ATs,A9s,A8s,A7s,A6s,A5s,A4s,A3s,A2s,KQs,KJs,KTs,K9s,K8s,QJs,QTs,Q9s,Q8s,JTs,J9s,J8s,T9s,T8s,98s,97s,87s,76s,65s,AKo,AQo,AJo,ATo,A9o,A8o,KQo,KJo,KTo,QJo,QTo,JTo',
+  'AA,KK,QQ,JJ,TT,99,88,77,66,55,44,33,22,AKs,AQs,AJs,ATs,A9s,A8s,A7s,A6s,A5s,A4s,A3s,A2s,KQs,KJs,KTs,K9s,K8s,K7s,K6s,K5s,K4s,QJs,QTs,Q9s,Q8s,Q7s,Q6s,JTs,J9s,J8s,J7s,T9s,T8s,T7s,98s,97s,96s,87s,86s,76s,75s,65s,64s,54s,53s,43s,AKo,AQo,AJo,ATo,A9o,A8o,A7o,A6o,A5o,A4o,A3o,A2o,KQo,KJo,KTo,K9o,QJo,QTo,Q9o,JTo,J9o,T9o,98o,87o'
+];
+const tierCall = [
+  '',
+  '',
+  '66,55,A5s,T9s,98s',
+  '55,44,87s,76s',
+  '44,33,22,86s,75s,64s,54s,J9o,T9o',
+  '32s,42s,52s,62s,72s,82s,92s,T6s,J6s,Q5s,K3s,K2s,85o,86o,75o,76o,65o,64o,54o'
+];
+const sbRaise = 'AA,KK,QQ,JJ,TT,99,88,77,66,55,44,AKs,AQs,AJs,ATs,A9s,A8s,A7s,A6s,A5s,A4s,A3s,A2s,KQs,KJs,KTs,K9s,K8s,K7s,QJs,QTs,Q9s,Q8s,JTs,J9s,T9s,T8s,98s,97s,87s,76s,65s,54s,AKo,AQo,AJo,ATo,A9o,KQo,KJo,KTo,QJo';
+const sbCall = '33,22,K6s,K5s,K4s,K3s,K2s,Q7s,Q6s,J8s,J7s,T7s,96s,86s,75s,64s,53s,43s,A8o,A7o,A6o,A5o,A4o,A3o,A2o,QTo,Q9o,JTo,J9o,T9o,98o,87o';
+const bbRaise = 'AA,KK,QQ,JJ,TT,AKs,AQs,AKo';
+const bbCall = '99,88,77,66,55,44,33,22,AJs,ATs,A9s,A8s,A7s,A6s,A5s,A4s,A3s,A2s,KQs,KJs,KTs,K9s,K8s,K7s,K6s,K5s,K4s,K3s,K2s,QJs,QTs,Q9s,Q8s,Q7s,Q6s,Q5s,Q4s,Q3s,Q2s,JTs,J9s,J8s,J7s,J6s,T9s,T8s,T7s,T6s,98s,97s,96s,87s,86s,85s,76s,75s,65s,64s,54s,53s,43s,AQo,AJo,ATo,A9o,A8o,A7o,A6o,A5o,A4o,A3o,KQo,KJo,KTo,K9o,K8o,QJo,QTo,Q9o,JTo,J9o,T9o,T8o,98o,97o,87o,86o,76o,75o,65o,54o';
+
+function positionTier(pos) {
+  switch (pos) {
+    case 'UTG':   return 0;
+    case 'UTG+1': return 1;
+    case 'UTG+2': return 1;
+    case 'MP':    return 2;
+    case 'MP+1':  return 2;
+    case 'HJ':    return 3;
+    case 'CO':    return 4;
+    case 'BTN':   return 5;
+    default:      return -1;
+  }
+}
+
+function getAction(r1, s1, r2, s2, pos) {
+  const suited = s1 === s2;
+  const key = handKey(r1, r2, suited);
+  let raiseSet, callSet;
+  if (pos === 'SB') { raiseSet = expandRange(sbRaise); callSet = expandRange(sbCall); }
+  else if (pos === 'BB') { raiseSet = expandRange(bbRaise); callSet = expandRange(bbCall); }
+  else { const t = positionTier(pos); raiseSet = expandRange(tierRaise[t]); callSet = expandRange(tierCall[t]); }
+  if (raiseSet.has(key)) return 'Raise';
+  if (callSet.has(key)) return 'Call';
+  return 'Fold';
+}
+
+// ── Recommendation reasoning ──
+function getReason(action, c0, c1, pos) {
+  const r0 = c0.rank, r1 = c1.rank;
+  const suited = c0.suitSym === c1.suitSym;
+  const i0 = RANKS.indexOf(r0), i1 = RANKS.indexOf(r1);
+  const hiR = i0 <= i1 ? r0 : r1;
+  const loR = i0 <= i1 ? r1 : r0;
+  const isPair = hiR === loR;
+  const posName = POSITION_INFO[pos].name;
+
+  // Hand strength descriptors
+  const premiumPairs = ['A','K','Q','J'].map(r => r+r);
+  const premiumHands = ['AKs','AKo','AQs'];
+  const key = handKey(r0, r1, suited);
+  const isPremium = premiumPairs.includes(key) || premiumHands.includes(key);
+
+  // Position descriptors
+  const earlyPositions = ['UTG','UTG+1','UTG+2'];
+  const latePositions = ['CO','BTN'];
+  const isEarly = earlyPositions.includes(pos);
+  const isLate = latePositions.includes(pos);
+  const isBlind = pos === 'SB' || pos === 'BB';
+
+  if (action === 'Raise') {
+    if (isPremium) return 'Premium hand \u2014 raise from any position.';
+    if (isPair) {
+      if (isLate) return 'Pocket pair in late position \u2014 strong open-raise.';
+      return 'Pocket pair \u2014 strong enough to raise from ' + posName + '.';
+    }
+    if (suited) {
+      if (isLate) return 'Suited hand in late position \u2014 wide and profitable open.';
+      if (isBlind) return 'Suited hand \u2014 playable as a raise from the ' + posName + '.';
+      return 'Suited hand with good high cards \u2014 raise from ' + posName + '.';
+    }
+    if (isLate) return 'Late position allows a wider opening range.';
+    if (isBlind) return 'Strong enough to raise from the ' + posName + '.';
+    return 'Good hand strength for a raise from ' + posName + '.';
+  }
+
+  if (action === 'Call') {
+    if (isPair) return 'Small pair \u2014 call to set-mine, not strong enough to raise here.';
+    if (suited) return 'Suited hand with implied odds \u2014 worth a call, not a raise from ' + posName + '.';
+    if (isBlind) return 'Decent hand in the ' + posName + ' \u2014 defend with a call.';
+    return 'Borderline hand \u2014 playable as a call from ' + posName + '.';
+  }
+
+  // Fold
+  if (isEarly) return 'Too weak to play from early position \u2014 many players left to act.';
+  if (isBlind) return 'Not strong enough to defend from the ' + posName + '.';
+  if (!suited && !isPair) return 'Offsuit hand without enough strength for this position.';
+  return 'Hand doesn\u2019t make the opening range from ' + posName + '.';
+}
+
+// ── UI: Stepper ──
+function changePlayerCount(delta) {
+  const n = Math.min(10, Math.max(2, playerCount + delta));
+  if (n === playerCount) return;
+  playerCount = n;
+  document.getElementById('playerCountValue').textContent = playerCount;
+  document.getElementById('stepDown').disabled = playerCount <= 2;
+  document.getElementById('stepUp').disabled = playerCount >= 10;
+  updatePositionDropdown();
+  evaluate();
+}
+
+// ── UI: Dropdown ──
+function updatePositionDropdown() {
+  const positions = POSITIONS_BY_COUNT[playerCount];
+  if (!positions.includes(position)) position = positions.includes('CO') ? 'CO' : positions[0];
+  renderDropdownTrigger();
+  renderDropdownMenu();
+}
+
+function renderDropdownTrigger() {
+  const info = POSITION_INFO[position];
+  document.getElementById('ddLabel').textContent = position;
+  document.getElementById('ddDesc').textContent = info.name;
+}
+
+function renderDropdownMenu() {
+  const positions = POSITIONS_BY_COUNT[playerCount];
+  const menu = document.getElementById('dropdownMenu');
+  menu.innerHTML = positions.map(p => {
+    const info = POSITION_INFO[p];
+    return `<div class="dropdown-option ${p===position?'active':''}" onclick="selectPosition('${p}')">
+      <span class="opt-abbr">${p}</span>
+      <span class="opt-desc">${info.name} &mdash; ${info.desc}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleDropdown() {
+  dropdownOpen = !dropdownOpen;
+  document.getElementById('dropdownMenu').classList.toggle('open', dropdownOpen);
+  document.getElementById('dropdownTrigger').classList.toggle('open', dropdownOpen);
+}
+
+function closeDropdown() {
+  dropdownOpen = false;
+  document.getElementById('dropdownMenu').classList.remove('open');
+  document.getElementById('dropdownTrigger').classList.remove('open');
+}
+
+function selectPosition(p) {
+  position = p;
+  closeDropdown();
+  renderDropdownTrigger();
+  renderDropdownMenu();
+  evaluate();
+}
+
+document.addEventListener('click', e => {
+  if (dropdownOpen && !document.getElementById('dropdownWrap').contains(e.target)) {
+    closeDropdown();
+  }
+});
+
+// ── UI: Cards ──
+function renderCard(idx) {
+  const el = document.getElementById('card' + idx);
+  const c = cards[idx];
+  if (!c || !c.rank) {
+    el.className = 'card-slot empty-card';
+    el.innerHTML = '';
+  } else {
+    el.className = 'card-slot selected ' + c.color;
+    el.innerHTML = `<span class="rank">${c.rank}</span><span class="suit">${c.suitSym}</span>`;
+  }
+}
+
+function onCardClick(idx) {
+  activeCard = idx;
+  showSuitPicker();
+}
+
+function showSuitPicker() {
+  document.getElementById('pickerTitle').textContent = 'Choose suit';
+  const picker = document.getElementById('picker');
+  picker.innerHTML = SUITS.map(s =>
+    `<button class="${s.color==='red'?'suit-red':''}" onclick="pickSuit('${s.sym}','${s.color}')" style="font-size:1.8rem">${s.sym}</button>`
+  ).join('');
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function pickSuit(sym, color) {
+  cards[activeCard] = { suitSym: sym, color: color, suit: sym, rank: null };
+  showRankPicker();
+}
+
+function showRankPicker() {
+  document.getElementById('pickerTitle').textContent = 'Choose rank';
+  const picker = document.getElementById('picker');
+  const otherCard = cards[1 - activeCard];
+  const currentSuit = cards[activeCard].suitSym;
+  picker.innerHTML = RANKS.map(r => {
+    const taken = otherCard && otherCard.rank === r && otherCard.suitSym === currentSuit;
+    return `<button ${taken?'disabled':''} onclick="pickRank('${r}')">${r}</button>`;
+  }).join('');
+}
+
+function pickRank(r) {
+  cards[activeCard].rank = r;
+  closeOverlay();
+  renderCard(activeCard);
+  evaluate();
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.add('hidden');
+}
+
+function evaluate() {
+  const rec = document.getElementById('rec');
+  const hn = document.getElementById('handName');
+
+  // Update hand name
+  const name = getHandName(cards[0], cards[1]);
+  hn.textContent = name;
+  hn.className = 'hand-name' + (name ? ' visible' : '');
+
+  if (!cards[0] || !cards[0].rank || !cards[1] || !cards[1].rank) {
+    rec.innerHTML = '';
+    rec.className = 'recommendation';
+    return;
+  }
+  const action = getAction(cards[0].rank, cards[0].suitSym, cards[1].rank, cards[1].suitSym, position);
+  const reason = getReason(action, cards[0], cards[1], position);
+  rec.innerHTML = `<span class="rec-action">${action}</span><span class="rec-reason">${reason}</span>`;
+  rec.className = 'recommendation visible ' + action.toLowerCase();
+}
+
+function reset() {
+  cards = [null, null];
+  renderCard(0);
+  renderCard(1);
+  document.getElementById('rec').innerHTML = '';
+  document.getElementById('rec').className = 'recommendation';
+  document.getElementById('handName').textContent = '';
+  document.getElementById('handName').className = 'hand-name';
+}
+
+// ── Init ──
+document.getElementById('stepDown').disabled = playerCount <= 2;
+document.getElementById('stepUp').disabled = playerCount >= 10;
+updatePositionDropdown();
+
+// ── PWA: Register service worker ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
